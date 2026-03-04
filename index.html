@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CxE Care Evaluation Agent</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Top Navigation -->
+    <header class="top-nav">
+        <div class="nav-container">
+            <div class="nav-left">
+                <div class="logo-section">
+                    <i class="fas fa-shield-halved logo-icon"></i>
+                    <span class="nav-divider">|</span>
+                    <span class="portal-title">CxE Care Evaluation Agent</span>
+                </div>
+            </div>
+            <nav class="nav-center">
+                <a href="#" class="nav-link active" data-page="home">Home</a>
+                <a href="#" class="nav-link" data-page="generate">Generate</a>
+                <a href="#" class="nav-link" data-page="datasets">Datasets</a>
+                <a href="#" class="nav-link" data-page="kusto">Kusto Explorer</a>
+            </nav>
+            <div class="nav-right">
+                <div class="api-status" id="apiStatus">
+                    <span class="status-dot offline"></span>
+                    <span class="status-text">API Offline</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Page: Home -->
+    <section class="page active" id="page-home">
+        <div class="hero">
+            <div class="hero-inner">
+                <h1>Welcome to <span class="highlight">CxE Care Evaluation Agent</span></h1>
+                <p>Generate high-quality golden evaluation datasets for your AI agents using real Kusto data schemas and LLM-powered synthesis.</p>
+                <div class="hero-stats">
+                    <div class="stat-card">
+                        <i class="fas fa-database"></i>
+                        <span class="stat-value" id="statDatasets">0</span>
+                        <span class="stat-label">Datasets Generated</span>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fas fa-vials"></i>
+                        <span class="stat-value" id="statSamples">0</span>
+                        <span class="stat-label">Total Samples</span>
+                    </div>
+                    <div class="stat-card">
+                        <i class="fab fa-github"></i>
+                        <span class="stat-value" id="statPublished">0</span>
+                        <span class="stat-label">Published</span>
+                    </div>
+                </div>
+                <div class="hero-actions">
+                    <button class="btn btn-primary btn-lg" onclick="navigateTo('generate')">
+                        <i class="fas fa-plus-circle"></i> Generate New Dataset
+                    </button>
+                    <button class="btn btn-secondary btn-lg" onclick="navigateTo('datasets')">
+                        <i class="fas fa-list"></i> View Datasets
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- How It Works -->
+        <div class="section-container">
+            <h2 class="section-title">How It Works</h2>
+            <div class="steps-grid">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <i class="fas fa-pen-to-square step-icon"></i>
+                    <h3>Describe Your Scenario</h3>
+                    <p>Provide a detailed description of the evaluation scenario you need data for — case triage, incident response, escalation, etc.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <i class="fas fa-database step-icon"></i>
+                    <h3>Kusto Data Discovery</h3>
+                    <p>The agent discovers relevant tables and schemas from the CxE Data Platform Kusto cluster to ground the generated data in reality.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <i class="fas fa-robot step-icon"></i>
+                    <h3>AI-Powered Generation</h3>
+                    <p>Using Azure OpenAI, the agent generates diverse, realistic samples across multiple complexity levels including edge cases.</p>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">4</div>
+                    <i class="fab fa-github step-icon"></i>
+                    <h3>Publish to GitHub</h3>
+                    <p>Export your golden dataset and publish it directly to the CxE-Care-Evaluations GitHub repository for team access.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Page: Generate -->
+    <section class="page" id="page-generate">
+        <div class="section-container">
+            <h2 class="section-title"><i class="fas fa-wand-magic-sparkles"></i> Generate Golden Dataset</h2>
+            <p class="section-subtitle">Describe your evaluation scenario and let the agent create a comprehensive golden dataset.</p>
+
+            <form id="generateForm" class="form-card">
+                <div class="form-group">
+                    <label for="scenarioTitle">Scenario Title *</label>
+                    <input type="text" id="scenarioTitle" placeholder="e.g., Case Triage Accuracy Evaluation" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="scenarioDescription">Scenario Description *</label>
+                    <textarea id="scenarioDescription" rows="6" placeholder="Describe your evaluation scenario in detail. Include what the agent should do, what inputs it receives, what outputs are expected, and any special considerations.&#10;&#10;Example: Evaluate an AI agent that triages incoming support cases by assigning severity (Sev1-Sev4), product area, and recommended engineering team based on the case title, description, and customer tier." required></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="scenarioCategory">Category</label>
+                        <select id="scenarioCategory">
+                            <option value="custom">Custom</option>
+                            <option value="case_management">Case Management</option>
+                            <option value="incident_response">Incident Response</option>
+                            <option value="service_delivery">Service Delivery</option>
+                            <option value="customer_onboarding">Customer Onboarding</option>
+                            <option value="escalation">Escalation</option>
+                            <option value="knowledge_base">Knowledge Base</option>
+                            <option value="sla_compliance">SLA Compliance</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="numSamples">Samples per Level</label>
+                        <input type="number" id="numSamples" value="20" min="5" max="200">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Complexity Levels</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="complexity" value="simple" checked> Simple
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="complexity" value="moderate" checked> Moderate
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="complexity" value="complex" checked> Complex
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="complexity" value="edge_case" checked> Edge Cases
+                        </label>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="kustoDatabase">Kusto Database (optional)</label>
+                        <input type="text" id="kustoDatabase" placeholder="e.g., CxEDataPlatform">
+                    </div>
+                    <div class="form-group">
+                        <label for="kustoTables">Kusto Tables (comma-separated, optional)</label>
+                        <input type="text" id="kustoTables" placeholder="e.g., SupportCases, Incidents">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg" id="generateBtn">
+                        <i class="fas fa-wand-magic-sparkles"></i> Generate Dataset
+                    </button>
+                </div>
+            </form>
+
+            <!-- Generation Progress -->
+            <div id="generationProgress" class="progress-card hidden">
+                <h3><i class="fas fa-spinner fa-spin"></i> Generating Dataset…</h3>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <p id="progressMessage">Initializing…</p>
+            </div>
+
+            <!-- Generation Result -->
+            <div id="generationResult" class="result-card hidden">
+                <div class="result-header">
+                    <h3><i class="fas fa-check-circle"></i> Dataset Generated Successfully</h3>
+                    <div class="result-actions">
+                        <button class="btn btn-primary" id="publishBtn" onclick="publishDataset()">
+                            <i class="fab fa-github"></i> Publish to GitHub
+                        </button>
+                        <button class="btn btn-secondary" id="downloadBtn" onclick="downloadDataset()">
+                            <i class="fas fa-download"></i> Download JSON
+                        </button>
+                    </div>
+                </div>
+                <div class="result-stats" id="resultStats"></div>
+                <div class="result-preview">
+                    <h4>Sample Preview</h4>
+                    <div id="samplePreview" class="json-preview"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Page: Datasets -->
+    <section class="page" id="page-datasets">
+        <div class="section-container">
+            <h2 class="section-title"><i class="fas fa-database"></i> Generated Datasets</h2>
+            <p class="section-subtitle">View and manage your golden evaluation datasets.</p>
+
+            <div class="tabs">
+                <button class="tab active" data-tab="local-datasets">Local (In-Memory)</button>
+                <button class="tab" data-tab="github-datasets">Published (GitHub)</button>
+            </div>
+
+            <div class="tab-content active" id="tab-local-datasets">
+                <div id="localDatasetsList" class="datasets-grid">
+                    <div class="empty-state">
+                        <i class="fas fa-inbox"></i>
+                        <p>No datasets generated yet. <a href="#" onclick="navigateTo('generate')">Generate one now</a>.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tab-content" id="tab-github-datasets">
+                <div id="githubDatasetsList" class="datasets-grid">
+                    <div class="empty-state">
+                        <i class="fab fa-github"></i>
+                        <p>Loading published datasets…</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Page: Kusto Explorer -->
+    <section class="page" id="page-kusto">
+        <div class="section-container">
+            <h2 class="section-title"><i class="fas fa-magnifying-glass-chart"></i> Kusto Explorer</h2>
+            <p class="section-subtitle">Browse Kusto cluster databases, tables, and run queries to preview available data.</p>
+
+            <div class="kusto-layout">
+                <div class="kusto-sidebar">
+                    <h3>Databases</h3>
+                    <button class="btn btn-sm btn-secondary" onclick="loadKustoDatabases()">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                    <ul id="databaseList" class="tree-list">
+                        <li class="empty-state-sm">Click Refresh to load databases</li>
+                    </ul>
+                </div>
+
+                <div class="kusto-main">
+                    <div class="kusto-query-section">
+                        <h3>KQL Query</h3>
+                        <div class="query-input-group">
+                            <input type="text" id="kustoDbInput" placeholder="Database name" value="CxEDataPlatform">
+                            <textarea id="kustoQueryInput" rows="4" placeholder="Enter KQL query, e.g.:&#10;SupportCases | take 10"></textarea>
+                            <button class="btn btn-primary" onclick="executeKustoQuery()">
+                                <i class="fas fa-play"></i> Run Query
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="kusto-results">
+                        <h3>Results</h3>
+                        <div id="kustoResults" class="results-table-container">
+                            <div class="empty-state-sm">Run a query to see results</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Dataset Detail Modal -->
+    <div class="modal-overlay hidden" id="datasetModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">Dataset Details</h2>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
+<!-- built 2026-03-03 22:19 -->
