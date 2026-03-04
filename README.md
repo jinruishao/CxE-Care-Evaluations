@@ -4,6 +4,25 @@ Generate high-quality **golden evaluation datasets** for AI agents in Microsoft 
 
 ## Quick Start
 
+### 0. One-Click Demo (GitHub Pages Frontend + Local Backend)
+
+From the repo root, run:
+
+```powershell
+./start-demo.ps1
+```
+
+This will:
+- install Python dependencies,
+- start local API on `http://127.0.0.1:8020`,
+- open GitHub Pages UI at `https://jinruishao.github.io/CxE-Care-Evaluations/`.
+
+Stop demo backend with:
+
+```powershell
+./stop-demo.ps1
+```
+
 ### 1. Clone & Install
 
 ```bash
