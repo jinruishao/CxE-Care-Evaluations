@@ -24,6 +24,11 @@ class Settings:
     AZURE_OPENAI_ENDPOINT: str = os.getenv("AZURE_OPENAI_ENDPOINT", "")
     AZURE_OPENAI_API_KEY: str = os.getenv("AZURE_OPENAI_API_KEY", "")
     AZURE_OPENAI_DEPLOYMENT: str = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+    AZURE_OPENAI_FALLBACK_DEPLOYMENTS: list[str] = [
+        d.strip()
+        for d in os.getenv("AZURE_OPENAI_FALLBACK_DEPLOYMENTS", "gpt-4o,gpt-4o-mini").split(",")
+        if d.strip()
+    ]
     AZURE_OPENAI_API_VERSION: str = os.getenv(
         "AZURE_OPENAI_API_VERSION", "2024-12-01-preview"
     )

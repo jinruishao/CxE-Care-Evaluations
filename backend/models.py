@@ -53,10 +53,10 @@ class ScenarioDescription(BaseModel):
     category: ScenarioCategory = Field(default=ScenarioCategory.CUSTOM, description="Category of the scenario")
     complexity_levels: list[DataComplexity] = Field(
         default=[DataComplexity.SIMPLE, DataComplexity.MODERATE, DataComplexity.COMPLEX],
-        description="Desired complexity levels for generated data"
+        description="Deprecated: complexity segmentation is no longer used"
     )
-    num_samples: int = Field(default=20, ge=5, le=200, description="Number of samples to generate per complexity level")
-    include_edge_cases: bool = Field(default=True, description="Whether to include edge case scenarios")
+    num_samples: int = Field(default=20, ge=5, le=200, description="Total number of samples to generate")
+    include_edge_cases: bool = Field(default=True, description="Deprecated: edge-case flag is no longer used")
     custom_fields: dict[str, str] | None = Field(default=None, description="Additional custom fields for the scenario")
     kusto_database: str | None = Field(default=None, description="Specific Kusto database to query")
     kusto_tables: list[str] | None = Field(default=None, description="Specific Kusto tables to use")

@@ -4,9 +4,7 @@
 
 // ── Configuration ─────────────────────────────────────────────────────
 
-const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:8000/api'
-    : '/api';  // Adjust for production
+const API_BASE = 'http://localhost:8020/api';
 
 let currentDataset = null;  // Currently viewed/generated dataset
 
@@ -105,10 +103,6 @@ async function generateDataset() {
     const progressCard = document.getElementById('generationProgress');
     const resultCard = document.getElementById('generationResult');
 
-    // Gather form data
-    const complexityCheckboxes = document.querySelectorAll('input[name="complexity"]:checked');
-    const complexityLevels = Array.from(complexityCheckboxes).map(cb => cb.value);
-
     const kustoTablesRaw = document.getElementById('kustoTables').value;
     const kustoTables = kustoTablesRaw ? kustoTablesRaw.split(',').map(t => t.trim()).filter(Boolean) : null;
 
@@ -116,9 +110,7 @@ async function generateDataset() {
         title: document.getElementById('scenarioTitle').value,
         description: document.getElementById('scenarioDescription').value,
         category: document.getElementById('scenarioCategory').value,
-        complexity_levels: complexityLevels.length > 0 ? complexityLevels : ['simple', 'moderate', 'complex'],
         num_samples: parseInt(document.getElementById('numSamples').value) || 20,
-        include_edge_cases: complexityLevels.includes('edge_case'),
         kusto_database: document.getElementById('kustoDatabase').value || null,
         kusto_tables: kustoTables,
     };
@@ -143,10 +135,9 @@ async function generateDataset() {
                 'Extracting keywords from scenario…',
                 'Discovering relevant Kusto tables…',
                 'Analyzing table schemas…',
-                'Generating simple samples…',
-                'Generating moderate samples…',
-                'Generating complex samples…',
-                'Creating edge-case scenarios…',
+                'Generating evaluation samples…',
+                'Refining sample quality…',
+                'Finalizing expected outputs…',
                 'Validating dataset quality…',
                 'Compiling final dataset…',
             ];
@@ -188,14 +179,9 @@ function showGenerationResult(data) {
 
     // Show statistics
     const statsEl = document.getElementById('resultStats');
-    const stats = data.statistics || {};
-    const byCplx = stats.by_complexity || {};
 
     statsEl.innerHTML = `
         <div class="result-stat"><strong>${data.total_samples}</strong> Total Samples</div>
-        ${Object.entries(byCplx).map(([k, v]) =>
-            v > 0 ? `<div class="result-stat"><strong>${v}</strong> ${k}</div>` : ''
-        ).join('')}
         <div class="result-stat">ID: <strong>${data.id}</strong></div>
     `;
 
@@ -321,8 +307,6 @@ async function loadGitHubDatasets() {
 
 function renderDatasetCard(ds, source) {
     const scenario = ds.scenario || {};
-    const stats = ds.statistics || {};
-    const byCplx = stats.by_complexity || {};
 
     return `
         <div class="dataset-card" onclick="showDatasetDetail('${ds.id}', '${source}')">
@@ -335,9 +319,6 @@ function renderDatasetCard(ds, source) {
             </div>
             <div class="stats-row">
                 <span><i class="fas fa-vials"></i> ${ds.total_samples || 0} samples</span>
-                ${Object.entries(byCplx).filter(([,v]) => v > 0).map(([k, v]) =>
-                    `<span>${k}: ${v}</span>`
-                ).join('')}
             </div>
             <div class="dataset-card-actions">
                 <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); publishDatasetById('${ds.id}')">

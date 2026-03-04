@@ -105,15 +105,7 @@ class GitHubStorage:
 ## Scenario Description
 
 {dataset.scenario.description}
-
-## Sample Distribution
-
-| Complexity | Count |
-|-----------|-------|
 """
-        by_complexity = stats.get("by_complexity", {})
-        for level, count in by_complexity.items():
-            readme_content += f"| {level} | {count} |\n"
 
         readme_content += f"""
 ## Kusto Tables Referenced

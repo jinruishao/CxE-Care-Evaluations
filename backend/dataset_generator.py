@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import uuid
 from datetime import datetime
 from typing import Any
@@ -49,10 +50,9 @@ Your job is to generate realistic, high-quality golden evaluation datasets that 
 Key principles:
 1. Data must be realistic — use patterns from real support/case/SM data when provided.
 2. Each sample must include clear input, expected output, and reasoning.
-3. Cover the full complexity spectrum: simple, moderate, complex, and edge-case scenarios.
-4. Include diverse customer profiles, product areas, severity levels, and resolution paths.
-5. Edge cases should cover ambiguous inputs, missing data, multi-product issues, and unusual scenarios.
-6. All generated data must be synthetic — no real customer PII.
+3. Include diverse customer profiles, product areas, severity levels, and resolution paths.
+4. Include some difficult/ambiguous examples naturally within the dataset.
+5. All generated data must be synthetic — no real customer PII.
 """
 
 GENERATION_PROMPT_TEMPLATE = """Generate {num_samples} evaluation samples for the following scenario:
@@ -60,14 +60,12 @@ GENERATION_PROMPT_TEMPLATE = """Generate {num_samples} evaluation samples for th
 **Title:** {title}
 **Description:** {description}
 **Category:** {category}
-**Complexity Level:** {complexity}
 
 {kusto_context}
 
 Each sample MUST follow this JSON structure:
 {{
   "id": "unique-id",
-  "complexity": "{complexity}",
   "input_data": {{ ... input fields relevant to the scenario ... }},
   "expected_output": {{ ... expected correct output/response ... }},
   "context": {{ ... additional context like customer profile, product, etc. ... }},
@@ -109,16 +107,57 @@ class DatasetGenerator:
 
     def _chat(self, system: str, user: str, temperature: float = 0.7) -> str:
         """Send a chat completion request to Azure OpenAI."""
-        response = self.openai_client.chat.completions.create(
-            model=settings.AZURE_OPENAI_DEPLOYMENT,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user},
-            ],
-            temperature=temperature,
-            max_tokens=4096,
-        )
-        return response.choices[0].message.content or ""
+        deployments: list[str] = [settings.AZURE_OPENAI_DEPLOYMENT]
+        deployments.extend(settings.AZURE_OPENAI_FALLBACK_DEPLOYMENTS)
+
+        # Preserve order while removing duplicates/empties.
+        seen: set[str] = set()
+        ordered_deployments: list[str] = []
+        for deployment in deployments:
+            if deployment and deployment not in seen:
+                seen.add(deployment)
+                ordered_deployments.append(deployment)
+
+        last_error: Exception | None = None
+
+        for deployment in ordered_deployments:
+            deployment_name = deployment.lower()
+            request_kwargs = {
+                "model": deployment,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "max_completion_tokens": 1400,
+            }
+
+            if not deployment_name.startswith("gpt-5") and temperature != 1:
+                request_kwargs["temperature"] = temperature
+
+            try:
+                response = self.openai_client.chat.completions.create(**request_kwargs)
+                message = response.choices[0].message
+
+                if message.content:
+                    if deployment != settings.AZURE_OPENAI_DEPLOYMENT:
+                        logger.warning(
+                            "Using fallback deployment '%s' (primary '%s' unavailable).",
+                            deployment,
+                            settings.AZURE_OPENAI_DEPLOYMENT,
+                        )
+                    return message.content
+
+                refusal = getattr(message, "refusal", None)
+                if refusal:
+                    raise RuntimeError(f"Model refusal ({deployment}): {refusal}")
+
+                raise RuntimeError(f"Model returned empty content ({deployment})")
+
+            except Exception as exc:
+                last_error = exc
+                logger.warning("Deployment '%s' failed: %s", deployment, exc)
+
+        raise RuntimeError(f"All deployments failed. Last error: {last_error}")
 
     def _parse_json_response(self, text: str) -> Any:
         """Parse JSON from LLM response, stripping markdown fences."""
@@ -128,7 +167,15 @@ class DatasetGenerator:
             lines = cleaned.split("\n")
             lines = [l for l in lines if not l.strip().startswith("```")]
             cleaned = "\n".join(lines)
-        return json.loads(cleaned)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            # GPT models may prepend/append commentary around JSON.
+            # Try to extract the first JSON array/object block.
+            match = re.search(r"(\[.*\]|\{.*\})", cleaned, re.DOTALL)
+            if match:
+                return json.loads(match.group(1))
+            raise
 
     # ── Keyword extraction ─────────────────────────────────────────────
 
@@ -210,29 +257,35 @@ class DatasetGenerator:
 
     # ── Sample generation ──────────────────────────────────────────────
 
-    def _generate_samples_for_complexity(
+    def _generate_samples(
         self,
         scenario: ScenarioDescription,
-        complexity: DataComplexity,
         kusto_context: str,
         num_samples: int,
     ) -> list[DatasetSample]:
-        """Generate samples for a single complexity level."""
+        """Generate samples for a scenario in a single pass."""
         prompt = GENERATION_PROMPT_TEMPLATE.format(
             num_samples=num_samples,
             title=scenario.title,
             description=scenario.description,
             category=scenario.category.value,
-            complexity=complexity.value,
             kusto_context=kusto_context,
         )
 
         try:
             raw = self._chat(SYSTEM_PROMPT, prompt, temperature=0.8)
+            logger.info("LLM raw response (first 200 chars): %s", raw[:200] if raw else "EMPTY")
             parsed = self._parse_json_response(raw)
+            logger.info("Parsed %d items from LLM response", len(parsed) if isinstance(parsed, list) else 0)
 
             samples: list[DatasetSample] = []
             for item in parsed:
+                raw_complexity = item.get("complexity", DataComplexity.SIMPLE.value)
+                try:
+                    complexity = DataComplexity(raw_complexity)
+                except Exception:
+                    complexity = DataComplexity.SIMPLE
+
                 sample = DatasetSample(
                     id=item.get("id", str(uuid.uuid4())[:8]),
                     complexity=complexity,
@@ -246,7 +299,7 @@ class DatasetGenerator:
             return samples
 
         except Exception as exc:
-            logger.error("Sample generation failed for %s: %s", complexity.value, exc)
+            logger.error("Sample generation failed: %s", exc, exc_info=True)
             return []
 
     # ── Main generation pipeline ───────────────────────────────────────
@@ -257,8 +310,8 @@ class DatasetGenerator:
 
         Steps:
         1. Gather Kusto context (schemas, sample data)
-        2. For each complexity level, generate samples via LLM
-        3. Compile, validate, and return the golden dataset
+        2. Generate samples via LLM
+        3. Compile and return the golden dataset
         """
         dataset_id = str(uuid.uuid4())[:12]
         dataset = GoldenDataset(
@@ -273,24 +326,13 @@ class DatasetGenerator:
         # Step 1: Gather Kusto context
         kusto_context = self._build_kusto_context(scenario)
 
-        # Step 2: Generate samples for each complexity level
-        all_samples: list[DatasetSample] = []
-        samples_per_level = max(scenario.num_samples // len(scenario.complexity_levels), 5)
-
-        for complexity in scenario.complexity_levels:
-            logger.info("Generating %d %s samples…", samples_per_level, complexity.value)
-            samples = self._generate_samples_for_complexity(
-                scenario, complexity, kusto_context, samples_per_level
-            )
-            all_samples.extend(samples)
-
-        # Step 3: Edge cases
-        if scenario.include_edge_cases and DataComplexity.EDGE_CASE not in scenario.complexity_levels:
-            logger.info("Generating edge-case samples…")
-            edge_samples = self._generate_samples_for_complexity(
-                scenario, DataComplexity.EDGE_CASE, kusto_context, max(samples_per_level // 2, 3)
-            )
-            all_samples.extend(edge_samples)
+        # Step 2: Generate samples in a single pass
+        logger.info("Generating %d samples…", scenario.num_samples)
+        all_samples = self._generate_samples(
+            scenario=scenario,
+            kusto_context=kusto_context,
+            num_samples=scenario.num_samples,
+        )
 
         # Step 4: Compile statistics
         dataset.samples = all_samples
@@ -298,10 +340,6 @@ class DatasetGenerator:
         dataset.updated_at = datetime.utcnow()
         dataset.statistics = {
             "total_samples": len(all_samples),
-            "by_complexity": {
-                c.value: len([s for s in all_samples if s.complexity == c])
-                for c in DataComplexity
-            },
             "generated_at": datetime.utcnow().isoformat(),
         }
 
