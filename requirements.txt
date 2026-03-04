@@ -1,0 +1,14 @@
+# CxE Care Evaluation Agent - Dependencies
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+azure-kusto-data==4.6.1
+azure-kusto-ingest==4.6.1
+azure-identity==1.19.0
+openai==1.58.1
+pydantic==2.10.4
+python-dotenv==1.0.1
+httpx==0.28.1
+PyGithub==2.5.0
+pandas==2.2.3
+jinja2==3.1.5
+python-multipart==0.0.20
